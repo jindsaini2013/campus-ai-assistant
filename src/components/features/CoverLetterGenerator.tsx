@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 export const CoverLetterGenerator = () => {
   const { toast } = useToast();
@@ -35,34 +36,36 @@ export const CoverLetterGenerator = () => {
 
     setIsProcessing(true);
     
-    // Simulated processing - will be replaced with actual API
-    setTimeout(() => {
-      setCoverLetter(`Dear Hiring Manager,
-
-I am writing to express my strong interest in the position at your organization. With my background and experience, I am confident I would be a valuable addition to your team.
-
-Throughout my academic and professional journey, I have developed strong skills that align perfectly with your requirements. My experience has equipped me with:
-
-• Strong analytical and problem-solving abilities
-• Excellent communication and collaboration skills  
-• Proficiency in relevant tools and technologies
-• A proven track record of delivering results
-
-I am particularly drawn to this opportunity because it allows me to combine my passion for the field with my desire to make a meaningful impact. Your organization's commitment to innovation and excellence resonates with my professional values.
-
-I am eager to bring my enthusiasm, dedication, and skills to your team. I would welcome the opportunity to discuss how my background and experience could benefit your organization.
-
-Thank you for considering my application. I look forward to the possibility of contributing to your team's success.
-
-Sincerely,
-[Your Name]`);
-      
-      setIsProcessing(false);
-      toast({
-        title: "Cover letter generated!",
-        description: "Your personalized cover letter is ready",
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-summarize', {
+        body: { 
+          type: 'cover_letter',
+          content: resume,
+          jobDescription: jobDescription
+        }
       });
-    }, 2000);
+
+      if (error) throw error;
+
+      if (data.success) {
+        setCoverLetter(data.result);
+        toast({
+          title: "Cover letter generated!",
+          description: "Your personalized cover letter is ready",
+        });
+      } else {
+        throw new Error(data.error || "Failed to generate cover letter");
+      }
+    } catch (error) {
+      console.error('Error generating cover letter:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to generate cover letter",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleCopy = async () => {
@@ -91,8 +94,8 @@ Sincerely,
       {/* Input Section */}
       <div className="feature-card">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
-            <FileText className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-accent to-destructive flex items-center justify-center">
+            <FileText className="w-5 h-5 text-accent-foreground" />
           </div>
           <div>
             <h2 className="font-display font-semibold text-xl">Cover Letter Generator</h2>

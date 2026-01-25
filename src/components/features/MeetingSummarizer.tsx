@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const languages = [
   { value: "english", label: "English" },
@@ -52,17 +53,46 @@ export const MeetingSummarizer = () => {
 
     setIsProcessing(true);
     
-    // Simulated processing - will be replaced with actual API calls
-    setTimeout(() => {
-      setTranscript("This is a sample transcript of your meeting. In a real implementation, this would be the actual transcribed text from your audio file using AI speech-to-text technology.\n\nThe meeting covered several key topics including project updates, timeline discussions, and next steps for the team.");
-      setSummary("**Meeting Summary**\n\n• Project updates were discussed with positive progress reported\n• Timeline adjusted to accommodate new requirements\n• Action items assigned to team members\n• Next meeting scheduled for next week");
-      setIsProcessing(false);
+    try {
+      // For demo purposes, we'll simulate transcript since audio transcription requires specialized APIs
+      // In production, you'd integrate Whisper API or similar service
+      const simulatedTranscript = `[Audio transcription would appear here]
       
-      toast({
-        title: "Processing complete!",
-        description: "Your audio has been transcribed and summarized",
+This is a simulated transcript for demo purposes. In a production environment, this would be the actual transcribed text from your ${file.name} audio file using AI speech-to-text technology like Whisper.
+
+The meeting covered several key topics including project updates, timeline discussions, and next steps for the team. Team members discussed the current sprint progress and identified blockers that need to be resolved.`;
+
+      setTranscript(simulatedTranscript);
+
+      // Call AI to summarize the transcript
+      const { data, error } = await supabase.functions.invoke('ai-summarize', {
+        body: { 
+          type: 'meeting',
+          content: simulatedTranscript
+        }
       });
-    }, 2000);
+
+      if (error) throw error;
+
+      if (data.success) {
+        setSummary(data.result);
+        toast({
+          title: "Processing complete!",
+          description: "Your audio has been transcribed and summarized",
+        });
+      } else {
+        throw new Error(data.error || "Failed to summarize");
+      }
+    } catch (error) {
+      console.error('Error processing audio:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to process audio",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleCopy = async (text: string) => {
@@ -91,8 +121,8 @@ export const MeetingSummarizer = () => {
       {/* Upload Section */}
       <div className="feature-card">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center">
-            <Mic className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-gradient-end flex items-center justify-center">
+            <Mic className="w-5 h-5 text-primary-foreground" />
           </div>
           <div>
             <h2 className="font-display font-semibold text-xl">Meeting Audio Summarizer</h2>
@@ -154,7 +184,7 @@ export const MeetingSummarizer = () => {
           </div>
           
           <div className="flex items-end">
-          <Button
+            <Button
               onClick={handleProcess}
               disabled={!file || isProcessing}
               variant="gradient"
