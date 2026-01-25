@@ -1,0 +1,7 @@
+project_id = "dthdmdtjhbyddtukqlgz"
+
+[functions.ai-summarize]
+verify_jwt = false
+
+[functions.scrape-website]
+verify_jwt = false

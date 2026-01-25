@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 export const WebSummarizer = () => {
   const { toast } = useToast();
@@ -37,38 +38,50 @@ export const WebSummarizer = () => {
     }
 
     setIsProcessing(true);
+    setSummary("");
+    setPageTitle("");
     
-    // Simulated processing - will be replaced with actual API
-    setTimeout(() => {
-      setPageTitle("Example Website - Your Source for Knowledge");
-      setSummary(`## Website Summary
-
-### Core Concepts
-- The website focuses on providing educational content for students
-- Features interactive learning modules and resources
-- Offers comprehensive coverage of academic topics
-
-### Key Insights
-- Modern approach to online education
-- User-friendly interface designed for accessibility
-- Regular updates with new content and features
-
-### Important Points
-1. **Learning Resources**: Extensive library of study materials
-2. **Interactive Features**: Quizzes and practice exercises
-3. **Community**: Active forums for discussion
-
-### Recommendations
-- Great for self-paced learning
-- Suitable for both beginners and advanced learners
-- Recommended for students preparing for exams`);
-      
-      setIsProcessing(false);
-      toast({
-        title: "Summary ready!",
-        description: "Website content has been analyzed and summarized",
+    try {
+      // First, scrape the website
+      const { data: scrapeData, error: scrapeError } = await supabase.functions.invoke('scrape-website', {
+        body: { url }
       });
-    }, 2500);
+
+      if (scrapeError) throw scrapeError;
+      if (!scrapeData.success) throw new Error(scrapeData.error || "Failed to scrape website");
+
+      setPageTitle(scrapeData.title);
+
+      // Then summarize the content
+      const { data: summaryData, error: summaryError } = await supabase.functions.invoke('ai-summarize', {
+        body: { 
+          type: 'website',
+          content: scrapeData.text,
+          url: url
+        }
+      });
+
+      if (summaryError) throw summaryError;
+
+      if (summaryData.success) {
+        setSummary(summaryData.result);
+        toast({
+          title: "Summary ready!",
+          description: "Website content has been analyzed and summarized",
+        });
+      } else {
+        throw new Error(summaryData.error || "Failed to summarize");
+      }
+    } catch (error) {
+      console.error('Error summarizing website:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to summarize website",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleCopy = async () => {
@@ -98,8 +111,8 @@ export const WebSummarizer = () => {
       {/* Input Section */}
       <div className="feature-card">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-            <Globe className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-gradient-end flex items-center justify-center">
+            <Globe className="w-5 h-5 text-primary-foreground" />
           </div>
           <div>
             <h2 className="font-display font-semibold text-xl">Website Summarizer</h2>
@@ -146,8 +159,8 @@ export const WebSummarizer = () => {
             <div className="flex items-center gap-3">
               <Loader2 className="w-5 h-5 animate-spin text-primary" />
               <div>
-                <p className="font-medium text-sm">Scraping website content...</p>
-                <p className="text-xs text-muted-foreground">This may take 20-40 seconds for complex pages</p>
+                <p className="font-medium text-sm">Scraping and analyzing website...</p>
+                <p className="text-xs text-muted-foreground">This may take a few seconds</p>
               </div>
             </div>
           </motion.div>
