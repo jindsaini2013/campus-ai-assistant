@@ -1,73 +1,147 @@
-# Welcome to your Lovable project
+# 🚀 AI Content Orchestrator
+Full-Stack Multi-Modal AI Summarization Platform
 
-## Project info
+### 📌 Overview
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+AI Content Orchestrator is a full-stack, serverless platform that converts unstructured data—such as audio recordings, web content, and PDFs—into structured, context-aware summaries.
 
-## How can I edit this code?
+The system intelligently adapts to different use cases (meeting minutes, research papers, job applications) using a custom prompt-routing mechanism, enabling more accurate and meaningful outputs.
 
-There are several ways of editing your application.
+### 🎯 Key Features
 
-**Use Lovable**
+🎙️ Audio Summarization – Converts speech to structured insights
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+🌐 Web Content Summarization – Scrapes and cleans web pages
 
-Changes made via Lovable will be committed automatically to this repo.
+📄 Document Processing – Extracts and summarizes PDFs
 
-**Use your preferred IDE**
+🧠 Context-Aware AI – Different prompts for different use cases
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+⚡ Fast Processing – Powered by Gemini 1.5 Flash
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+☁️ Serverless Architecture – Scalable and efficient
 
-Follow these steps:
+🔐 Secure File Handling – Authenticated storage with signed URLs
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### 🏗️ System Architecture
+#### 🔹 End-to-End Flow
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+1. User uploads input (audio / URL / PDF) via frontend
 
-# Step 3: Install the necessary dependencies.
-npm i
+2. Frontend sends request to backend API
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+3. Backend (Edge Function):
 
-**Edit a file directly in GitHub**
+- Authenticates user
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- Validates input
 
-**Use GitHub Codespaces**
+- Uploads file to storage (if needed)
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+4. Storage Layer:
 
-## What technologies are used for this project?
+- Stores large files temporarily
 
-This project is built with:
+- Generates signed URLs
 
-- Vite
-- TypeScript
+5. AI Layer (Gemini):
+
+- Fetches content
+
+- Applies prompt routing
+
+- Generates summary
+
+6. Backend returns response
+
+7. Frontend displays structured output
+
+### 🧩 Tech Stack
+#### Frontend
+
 - React
-- shadcn-ui
+
+- TypeScript
+
 - Tailwind CSS
 
-## How can I deploy this project?
+- Shadcn UI
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+- Framer Motion
 
-## Can I connect a custom domain to my Lovable project?
+#### Backend
 
-Yes, you can!
+- Supabase Edge Functions (Deno)
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+- Supabase Auth
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+#### Storage
+
+- Supabase Storage (Buckets + Signed URLs)
+
+#### AI Layer
+
+- Gemini 1.5 Flash API
+
+#### DevOps
+
+- Supabase CLI
+
+- Environment Variables (Secrets Management)
+
+### ⚙️ Core Components
+1️⃣ Prompt Routing System
+
+- Dynamically selects prompts based on:
+
+  - Input type (audio, web, PDF)
+
+  - Use case (meeting, research, etc.)
+
+- Improves accuracy and relevance of summaries
+
+2️⃣ Cloud Storage Pipeline
+
+- Files uploaded to Supabase Storage
+
+- Short-lived signed URLs generated
+
+- AI fetches files securely
+
+- Prevents memory overload in serverless functions
+
+3️⃣ Web Scraping & Sanitization
+
+Removes:
+
+- HTML tags
+
+- Scripts & styles
+
+- Ads & navigation
+
+- Keeps only meaningful content
+
+✅ Reduces token usage
+
+✅ Improves summary quality
+
+
+4️⃣ Chunked Audio Processing
+
+- Splits large audio into smaller chunks
+
+- Prevents memory overflow
+
+- Enables processing of long recordings
+  
+
+📉 Optimization Techniques
+
+🔻 Reduced token cost via text sanitization
+
+⚡ Faster inference using Gemini Flash
+
+🧠 Efficient memory usage via chunking
+
+🔐 Secure access using signed URLs
