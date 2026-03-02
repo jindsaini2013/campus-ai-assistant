@@ -49,51 +49,59 @@ export const MeetingSummarizer = () => {
   };
 
   const handleProcess = async () => {
-    if (!file) return;
+  if (!file) return;
+  setIsProcessing(true);
+  
+  try {
+    // 1. Upload actual file to Supabase Storage
+    const fileName = `${Date.now()}-${file.name}`;
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('recordings')
+      .upload(fileName, file);
 
-    setIsProcessing(true);
-    
-    try {
-      // For demo purposes, we'll simulate transcript since audio transcription requires specialized APIs
-      // In production, you'd integrate Whisper API or similar service
-      const simulatedTranscript = `[Audio transcription would appear here]
-      
-This is a simulated transcript for demo purposes. In a production environment, this would be the actual transcribed text from your ${file.name} audio file using AI speech-to-text technology like Whisper.
+    if (uploadError) throw uploadError;
 
-The meeting covered several key topics including project updates, timeline discussions, and next steps for the team. Team members discussed the current sprint progress and identified blockers that need to be resolved.`;
+    // 2. Get the public URL for the Edge Function to download
+    const { data: { publicUrl } } = supabase.storage
+      .from('recordings')
+      .getPublicUrl(fileName);
 
-      setTranscript(simulatedTranscript);
-
-      // Call AI to summarize the transcript
-      const { data, error } = await supabase.functions.invoke('ai-summarize', {
-        body: { 
-          type: 'meeting',
-          content: simulatedTranscript
-        }
-      });
-
-      if (error) throw error;
-
-      if (data.success) {
-        setSummary(data.result);
-        toast({
-          title: "Processing complete!",
-          description: "Your audio has been transcribed and summarized",
-        });
-      } else {
-        throw new Error(data.error || "Failed to summarize");
+    // 3. Call the Edge Function with the audioUrl
+    const { data, error } = await supabase.functions.invoke('ai-summarize', {
+      body: { 
+        type: 'meeting',
+        audioUrl: publicUrl // Send the real file URL, not 'content'
       }
-    } catch (error) {
-      console.error('Error processing audio:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to process audio",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
+    });
+
+    if (error) throw error;
+
+    // Inside handleProcess after getting data from the Edge Function
+    if (data.success) {
+      const fullResult = data.result;
+      
+      // Check if the marker exists
+      if (fullResult.includes("###TRANSCRIPT_END###")) {
+        const parts = fullResult.split("###TRANSCRIPT_END###");
+        setTranscript(parts[0].trim());
+        setSummary(parts[1].trim());
+      } else {
+        // Fallback if the AI forgets the marker
+        setTranscript("See Summary box for full output.");
+        setSummary(fullResult);
+      }
+
+      toast({ title: "Processing complete!" });
+    }else {
+      throw new Error(data.error);
     }
-  };
+  } catch (error: any) {
+    console.error('Processing error:', error);
+    toast({ title: "Error", description: error.message, variant: "destructive" });
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   const handleCopy = async (text: string) => {
     await navigator.clipboard.writeText(text);
@@ -269,3 +277,5 @@ The meeting covered several key topics including project updates, timeline discu
     </motion.div>
   );
 };
+
+
