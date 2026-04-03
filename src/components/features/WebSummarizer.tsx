@@ -52,13 +52,13 @@ export const WebSummarizer = () => {
 
       setPageTitle(scrapeData.title);
 
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      const contentToSummarize = scrapeData.text.substring(0, 6000); // Limit to ~1500 words
       // Then summarize the content
       const { data: summaryData, error: summaryError } = await supabase.functions.invoke('ai-summarize', {
       body: { 
         type: 'website',
-        content: scrapeData.text,
+        content: contentToSummarize,
         url: url
       }
     });
