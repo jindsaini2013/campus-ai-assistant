@@ -12,14 +12,16 @@ serve(async (req) => {
   }
 
   try {
-    const { url } = await req.json();
+    const body = await req.json().catch(() => ({})); // Prevents crash if body is empty
+    const url = body.url;
 
     if (!url) {
       return new Response(
-        JSON.stringify({ success: false, error: 'URL is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: "No URL provided" }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
+    console.log(`Scraping URL: ${url}`);
 
     // Format URL
     let formattedUrl = url.trim();
@@ -39,7 +41,7 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch: ${response.status}`);
+      throw new Error(`Website returned status: ${response.status}. They might be blocking automated access.`);
     }
 
     const html = await response.text();
