@@ -49,59 +49,65 @@ export const MeetingSummarizer = () => {
   };
 
   const handleProcess = async () => {
-  if (!file) return;
-  setIsProcessing(true);
-  
-  try {
-    // 1. Upload actual file to Supabase Storage
-    const fileName = `${Date.now()}-${file.name}`;
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('recordings')
-      .upload(fileName, file);
+    if (!file) return;
+    setIsProcessing(true);
 
-    if (uploadError) throw uploadError;
-
-    // 2. Get the public URL for the Edge Function to download
-    const { data: { publicUrl } } = supabase.storage
-      .from('recordings')
-      .getPublicUrl(fileName);
-
-    // 3. Call the Edge Function with the audioUrl
-    const { data, error } = await supabase.functions.invoke('ai-summarize', {
-      body: { 
-        type: 'meeting',
-        audioUrl: publicUrl // Send the real file URL, not 'content'
+    try {
+      // 1. Get the current user's ID
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: "Authentication required", description: "Please log in to upload recordings.", variant: "destructive" });
+        setIsProcessing(false);
+        return;
       }
-    });
 
-    if (error) throw error;
+      // 2. Upload to a user-specific folder
+      const fileName = `${user.id}/${Date.now()}-${file.name}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('recordings')
+        .upload(fileName, file);
 
-    // Inside handleProcess after getting data from the Edge Function
-    if (data.success) {
-      const fullResult = data.result;
-      
-      // Check if the marker exists
-      if (fullResult.includes("###TRANSCRIPT_END###")) {
-        const parts = fullResult.split("###TRANSCRIPT_END###");
-        setTranscript(parts[0].trim());
-        setSummary(parts[1].trim());
+      if (uploadError) throw uploadError;
+
+      // 3. Generate a Signed URL (private bucket)
+      const { data: signedUrlData, error: signedError } = await supabase.storage
+        .from('recordings')
+        .createSignedUrl(fileName, 900);
+
+      if (signedError) throw signedError;
+
+      // 4. Call the Edge Function with the SIGNED URL
+      const { data, error } = await supabase.functions.invoke('ai-summarize', {
+        body: {
+          type: 'meeting',
+          audioUrl: signedUrlData.signedUrl,
+          language: language,
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        const fullResult = data.result;
+        if (fullResult.includes("###TRANSCRIPT_END###")) {
+          const parts = fullResult.split("###TRANSCRIPT_END###");
+          setTranscript(parts[0].trim());
+          setSummary(parts[1].trim());
+        } else {
+          setTranscript("Transcript generation complete.");
+          setSummary(fullResult);
+        }
+        toast({ title: "Processing complete!" });
       } else {
-        // Fallback if the AI forgets the marker
-        setTranscript("See Summary box for full output.");
-        setSummary(fullResult);
+        throw new Error(data.error);
       }
-
-      toast({ title: "Processing complete!" });
-    }else {
-      throw new Error(data.error);
+    } catch (error: any) {
+      console.error('Processing error:', error);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsProcessing(false);
     }
-  } catch (error: any) {
-    console.error('Processing error:', error);
-    toast({ title: "Error", description: error.message, variant: "destructive" });
-  } finally {
-    setIsProcessing(false);
-  }
-};
+  };
 
   const handleCopy = async (text: string) => {
     await navigator.clipboard.writeText(text);
