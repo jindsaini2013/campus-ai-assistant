@@ -34,8 +34,13 @@ const Index = () => {
             </div>
             <span className="font-display font-bold text-lg">StudyHub</span>
           </div>
-          <div className="text-sm text-muted-foreground">
-            AI-Powered Campus Tools
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground truncate max-w-[200px]">
+              {user?.email}
+            </span>
+            <Button variant="ghost" size="sm" onClick={signOut}>
+              <LogOut className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </header>
