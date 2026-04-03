@@ -3,16 +3,16 @@ name: Deploy Edge Functions
 on:
   push:
     branches:
-      - main  # Runs every time you push to the main branch
+      - main  # Change to 'master' if that is your branch name
     paths:
-      - 'supabase/functions/**' # Only runs if you change a function
+      - 'supabase/functions/**'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout lead
+      - name: Checkout Repo
         uses: actions/checkout@v3
 
       - name: Setup Supabase CLI
@@ -20,9 +20,8 @@ jobs:
         with:
           version: latest
 
-      - name: Deploy Edge Function
-        run: supabase functions deploy ai-summarize --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+      - name: Deploy All Functions
+        # This command finds every folder in /functions/ and deploys it
+        run: supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-
-          
