@@ -6,7 +6,9 @@ import { MeetingSummarizer } from "@/components/features/MeetingSummarizer";
 import { WebSummarizer } from "@/components/features/WebSummarizer";
 import { CoverLetterGenerator } from "@/components/features/CoverLetterGenerator";
 import { ResearchPaperSummarizer } from "@/components/features/ResearchPaperSummarizer";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, LogOut } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
 
 const features = [
   { id: 0, component: MeetingSummarizer },
