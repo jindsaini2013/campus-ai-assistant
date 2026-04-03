@@ -75,16 +75,7 @@ serve(async (req) => {
 
     if (type === "meeting") {
       console.info("Processing meeting request...");
-
-      if (!audioUrl) {
-        // Text-only transcript provided
-        const summary = await summarizeText(GEMINI_API_KEY!, content, language || "english");
-        console.info("meeting processing complete");
-        return new Response(JSON.stringify({
-          success: true,
-          result: `${content}\n\n###TRANSCRIPT_END###\n\n${summary}`
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+  
 
       // Fetch the audio file
       const audioResp = await fetch(audioUrl);
@@ -208,3 +199,5 @@ serve(async (req) => {
     });
   }
 });
+
+// Version 1.0
