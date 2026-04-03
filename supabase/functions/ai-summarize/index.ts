@@ -71,9 +71,13 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
+    const rawBody = await req.text();
+    if (!rawBody) throw new Error("Request body is empty");
+    
+    const body = JSON.parse(rawBody);
+    const { type, content, audioUrl, url, jobDescription, language } = body;
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    const { type, content, audioUrl, url, jobDescription, language } = await req.json();
-
+    
     if (type === "meeting") {
       console.info("Processing meeting request...");
   
@@ -121,7 +125,8 @@ serve(async (req) => {
       return new Response(JSON.stringify({
       success: true,
       transcript: fullTranscript,
-      summary: summary
+      summary: summary,
+      result: summary
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
