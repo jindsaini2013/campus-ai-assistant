@@ -6,7 +6,7 @@ export const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const CHUNK_SIZE_MB = 15; // ~15MB chunks to stay under Gemini limits
+const CHUNK_SIZE_MB = 20; // ~15MB chunks to stay under Gemini limits
 const CHUNK_SIZE_BYTES = CHUNK_SIZE_MB * 1024 * 1024;
 
 async function transcribeChunk(apiKey: string, base64Audio: string, mimeType: string, chunkIndex: number, totalChunks: number): Promise<string> {
@@ -82,6 +82,7 @@ serve(async (req) => {
 
   try {
     const { type, content, audioUrl, url, jobDescription, language } = await req.json();
+    const safeContent = content.substring(0, 8000);
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     
     if (type === "meeting") {
