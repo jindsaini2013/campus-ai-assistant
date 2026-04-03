@@ -52,14 +52,16 @@ export const WebSummarizer = () => {
 
       setPageTitle(scrapeData.title);
 
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
       // Then summarize the content
       const { data: summaryData, error: summaryError } = await supabase.functions.invoke('ai-summarize', {
-        body: { 
-          type: 'website',
-          content: scrapeData.text,
-          url: url
-        }
-      });
+      body: { 
+        type: 'website',
+        content: scrapeData.text,
+        url: url
+      }
+    });
 
       if (summaryError) throw summaryError;
 
