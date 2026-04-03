@@ -1,46 +1,142 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const CHUNK_SIZE_MB = 15; // ~15MB chunks to stay under Gemini limits
+const CHUNK_SIZE_BYTES = CHUNK_SIZE_MB * 1024 * 1024;
+
+async function transcribeChunk(apiKey: string, base64Audio: string, mimeType: string, chunkIndex: number, totalChunks: number): Promise<string> {
+  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+  const prompt = totalChunks > 1
+    ? `This is audio chunk ${chunkIndex + 1} of ${totalChunks}. Provide a word-for-word transcript of this audio segment. Do NOT summarize - transcribe every word spoken.`
+    : `Provide a word-for-word transcript of this audio. Do NOT summarize - transcribe every word spoken.`;
+
+  const payload = {
+    contents: [{
+      parts: [
+        { text: prompt },
+        { inline_data: { mime_type: mimeType, data: base64Audio } }
+      ]
+    }]
+  };
+
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json();
+  if (data.error) throw new Error(`Chunk ${chunkIndex + 1} failed: ${data.error.message}`);
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+}
+
+async function summarizeText(apiKey: string, transcript: string, language: string): Promise<string> {
+  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+  const payload = {
+    contents: [{
+      parts: [{
+        text: `You are an expert meeting summarizer. Summarize the following transcript in ${language}. Provide:
+1. **Key Discussion Points** - Main topics discussed
+2. **Decisions Made** - Any conclusions reached
+3. **Action Items** - Tasks assigned with owners if mentioned
+4. **Important Details** - Dates, numbers, names mentioned
+
+Be concise but thorough. Format in clean markdown.
+
+TRANSCRIPT:
+${transcript}`
+      }]
+    }]
+  };
+
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json();
+  if (data.error) throw new Error(`Summary failed: ${data.error.message}`);
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || "No summary generated.";
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    const { type, content, audioUrl, url, jobDescription } = await req.json();
+    const { type, content, audioUrl, url, jobDescription, language } = await req.json();
 
+    if (type === "meeting") {
+      console.info("Processing meeting request...");
+
+      if (!audioUrl) {
+        // Text-only transcript provided
+        const summary = await summarizeText(GEMINI_API_KEY!, content, language || "english");
+        console.info("meeting processing complete");
+        return new Response(JSON.stringify({
+          success: true,
+          result: `${content}\n\n###TRANSCRIPT_END###\n\n${summary}`
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Fetch the audio file
+      const audioResp = await fetch(audioUrl);
+      if (!audioResp.ok) throw new Error(`Failed to fetch audio: ${audioResp.status}`);
+      const arrayBuffer = await audioResp.arrayBuffer();
+      const totalBytes = arrayBuffer.byteLength;
+      const totalChunks = Math.ceil(totalBytes / CHUNK_SIZE_BYTES);
+
+      console.info(`Audio size: ${(totalBytes / 1024 / 1024).toFixed(2)}MB, splitting into ${totalChunks} chunk(s)`);
+
+      // Determine mime type
+      const contentType = audioResp.headers.get("content-type") || "audio/mpeg";
+      const mimeType = contentType.includes("wav") ? "audio/wav" : "audio/mpeg";
+
+      // Process chunks sequentially
+      const transcriptParts: string[] = [];
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE_BYTES;
+        const end = Math.min(start + CHUNK_SIZE_BYTES, totalBytes);
+        const chunkBuffer = arrayBuffer.slice(start, end);
+
+        // Convert chunk to base64
+        const uint8 = new Uint8Array(chunkBuffer);
+        let binary = "";
+        for (let j = 0; j < uint8.length; j++) {
+          binary += String.fromCharCode(uint8[j]);
+        }
+        const base64 = btoa(binary);
+
+        console.info(`Transcribing chunk ${i + 1}/${totalChunks} (${(uint8.length / 1024 / 1024).toFixed(2)}MB)...`);
+        const chunkTranscript = await transcribeChunk(GEMINI_API_KEY!, base64, mimeType, i, totalChunks);
+        transcriptParts.push(chunkTranscript);
+      }
+
+      const fullTranscript = transcriptParts.join("\n\n");
+      console.info(`Transcription complete (${fullTranscript.length} chars). Generating summary...`);
+
+      // Now summarize the combined transcript
+      const summary = await summarizeText(GEMINI_API_KEY!, fullTranscript, language || "english");
+
+      console.info("meeting processing complete");
+      return new Response(JSON.stringify({
+        success: true,
+        result: `${fullTranscript}\n\n###TRANSCRIPT_END###\n\n${summary}`
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Non-meeting types
     let systemPrompt = "";
     let userPrompt = "";
-    let inlineData = null;
 
-    // All your specific logic and prompts
     switch (type) {
-      case "meeting":
-        systemPrompt = `You are an expert transcriber and summarizer. 
-        First, provide a full word-for-word transcript of the audio.
-        Then, insert the exact text: ###TRANSCRIPT_END###
-        Finally, provide a structured summary with Key Points and Action Items.`;
-        if (audioUrl) {
-          // Fetch the real audio file
-          const audioResp = await fetch(audioUrl);
-          const arrayBuffer = await audioResp.arrayBuffer();
-          // Convert to Base64
-          const uint8Array = new Uint8Array(arrayBuffer);
-          let binary = "";
-          for (let i = 0; i < uint8Array.length; i++) {
-            binary += String.fromCharCode(uint8Array[i]);
-          }
-          inlineData = { mime_type: "audio/mpeg", data: btoa(binary) };
-          userPrompt = "Please transcribe and summarize this meeting audio.";
-        } else {
-          userPrompt = `Please summarize this transcript:\n\n${content}`;
-        }
-        break;
-
       case "website":
         systemPrompt = `You are an expert content summarizer. Read the website content carefully and produce a high-quality summary that captures:
         1) Core concepts and ideas
@@ -82,18 +178,10 @@ serve(async (req) => {
         throw new Error("Invalid type specified");
     }
 
-
-    // Using Gemini 2.5 Flash - fast and free-tier friendly
-    // Use v1 instead of v1beta and ensure the model string is exact
-    // The correct stable endpoint for Gemini 2.5 Flash
     const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-
     const geminiPayload = {
       contents: [{
-        parts: [
-          { text: `${systemPrompt}\n\n${userPrompt}` },
-          ...(inlineData ? [{ inline_data: inlineData }] : [])
-        ]
+        parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]
       }]
     };
 
@@ -105,7 +193,6 @@ serve(async (req) => {
 
     const data = await geminiRes.json();
     if (data.error) throw new Error(data.error.message);
-
     const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No output generated.";
 
     return new Response(JSON.stringify({ success: true, result: resultText }), {
@@ -115,7 +202,7 @@ serve(async (req) => {
   } catch (error: any) {
     console.error("Critical Error:", error.message);
     return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 200, // Return 200 so the frontend catch block can read the actual message
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   }
