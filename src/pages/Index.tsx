@@ -19,6 +19,7 @@ const features = [
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState(0);
+  const { user, signOut } = useAuth();
 
   const ActiveComponent = features[activeTab].component;
 
