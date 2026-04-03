@@ -28,11 +28,21 @@ async function transcribeChunk(apiKey: string, base64Audio: string, mimeType: st
   const res = await fetch(API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { text: prompt },
+          { inline_data: { mime_type: mimeType, data: base64Audio } }
+        ]
+      }]
+    })
   });
 
   const data = await res.json();
-  if (data.error) throw new Error(`Chunk ${chunkIndex + 1} failed: ${data.error.message}`);
+  if (!res.ok) {
+    console.error(`Chunk ${chunkIndex + 1} Error:`, JSON.stringify(data));
+    throw new Error(data.error?.message || `Chunk ${chunkIndex + 1} failed`);
+  }
   return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 }
 
@@ -71,11 +81,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const rawBody = await req.text();
-    if (!rawBody) throw new Error("Request body is empty");
-    
-    const body = JSON.parse(rawBody);
-    const { type, content, audioUrl, url, jobDescription, language } = body;
+    const { type, content, audioUrl, url, jobDescription, language } = await req.json();
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     
     if (type === "meeting") {
