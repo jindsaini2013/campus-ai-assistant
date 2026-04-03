@@ -1,19 +1,22 @@
-name: Deploy Edge Functions
+name: Deploy Campus AI Assistant
 
 on:
   push:
     branches:
-      - main  # Change to 'master' if that is your branch name
+      - main
+    # This section ensures branding changes (icons/name) trigger a deploy
     paths:
-      - 'supabase/functions/**'
+      - 'supabase/functions/**'  # AI Logic
+      - 'src/**'                 # Frontend Components
+      - 'public/**'              # Favicons/Icons
+      - 'index.html'             # Website Name/Title
 
 jobs:
-  deploy:
+  deploy-ai:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4 # Updated to v4 for better performance
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
@@ -21,7 +24,6 @@ jobs:
           version: latest
 
       - name: Deploy All Functions
-        # This command finds every folder in /functions/ and deploys it
         run: supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
