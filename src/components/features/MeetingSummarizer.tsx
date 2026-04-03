@@ -89,19 +89,26 @@ export const MeetingSummarizer = () => {
 
       if (data.success) {
         const fullResult = data.result;
-        if (fullResult.includes("###TRANSCRIPT_END###")) {
-          const parts = fullResult.split("###TRANSCRIPT_END###");
-          setTranscript(parts[0].trim());
-          setSummary(parts[1].trim());
+        if (fullResult.includes("## Summary:")) {
+          const parts = fullResult.split("## Summary:");
+          
+          // Part 0 is everything before "## Summary:", which includes the Transcription header
+          const cleanTranscript = parts[0].replace("## Transcription:", "").trim();
+          const cleanSummary = parts[1].trim();
+
+          setTranscript(cleanTranscript);
+          setSummary(cleanSummary);
         } else {
-          setTranscript("Transcript generation complete.");
+          // Fallback if the string isn't formatted as expected
+          setTranscript("Transcription complete.");
           setSummary(fullResult);
         }
+  
         toast({ title: "Processing complete!" });
-      } else {
-        throw new Error(data.error);
       }
+
     } catch (error: any) {
+      // 3. Handle CRASHES (Network issues, timeouts, or the 'throws' above)
       console.error('Processing error:', error);
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {

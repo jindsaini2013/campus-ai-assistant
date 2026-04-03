@@ -127,9 +127,10 @@ serve(async (req) => {
 
       console.info("meeting processing complete");
       return new Response(JSON.stringify({
-        success: true,
-        result: `${fullTranscript}\n\n###TRANSCRIPT_END###\n\n${summary}`
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      success: true,
+      transcript: fullTranscript,
+      summary: summary
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Non-meeting types
